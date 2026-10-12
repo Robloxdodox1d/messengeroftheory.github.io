@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Мессенджер</title>
+<style>
+  :root {
+    --bg: #0f0f10;
+    --bg-2: #17181b;
+    --bg-3: #1f2024;
+    --bg-hover: #26272c;
+    --border: #2a2b30;
+    --text: #e8e9eb;
+    --text-dim: #8b8d95;
+    --accent: #6366f1;
+    --accent-2: #818cf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input { font-family: inherit; }
+
+  /* ============ LOGIN ============ */
+  #login-screen {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(1200px 600px at 50% -10%, #4f46e5 0%, #0f0f10 60%);
+    z-index: 100;
+  }
+  .login-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 40px;
+    border-radius: 20px;
+    width: min(400px, 92vw);
+    box-shadow: 0 30px 60px rgba(0,0,0,.5);
+    animation: rise .4s ease;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+  .login-card h1 { font-size: 28px; margin-bottom: 8px; }
+  .login-card p { color: var(--text-dim); margin-bottom: 24px; font-size: 14px; }
+  .login-card input {
+    width: 100%; padding: 14px 16px; font-size: 15px;
+    background: var(--bg-3); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .login-card input:focus { border-color: var(--accent); }
+  .login-card button {
+    width: 100%; margin-top: 12px; padding: 14px;
+    background: var(--accent); color: #fff; font-weight: 600;
+    font-size: 15px; border-radius: 12px;
+    transition: background .15s;
+  }
+  .login-card button:hover { background: var(--accent-2); }
+
+  /* ============ CHAT LAYOUT ============ */
+  #chat-screen { display: flex; height: 100vh; width: 100%; }
+  #chat-screen.hidden, #login-screen.hidden { display: none; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px; flex-shrink: 0;
+    background: var(--bg-2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+  .user-info { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; font-size: 16px; flex-shrink: 0;
+  }
+  .user-name { font-weight: 600; font-size: 15px; }
+  .user-status { font-size: 12px; color: #22c55e; display: flex; align-items: center; gap: 5px; }
+  .user-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+
+  .rooms { flex: 1; overflow-y: auto; padding: 12px 8px; }
+  .rooms-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    color: var(--text-dim); text-transform: uppercase;
+    padding: 8px 12px 6px;
+  }
+  #rooms-list { list-style: none; }
+  #rooms-list li {
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    color: var(--text-dim); font-size: 14px;
+    display: flex; align-items: center; gap: 6px;
+    transition: background .12s, color .12s;
+  }
+  #rooms-list li:hover { background: var(--bg-hover); color: var(--text); }
+  #rooms-list li.active { background: var(--bg-3); color: #fff; font-weight: 500; }
+  #rooms-list li .hash { color: var(--text-dim); font-weight: 500; }
+
+  .logout-btn {
+    margin: 12px; padding: 10px;
+    background: var(--bg-3); border-radius: 8px;
+    font-size: 13px; color: var(--text-dim);
+    transition: background .15s, color .15s;
+  }
+  .logout-btn:hover { background: #3a1d1d; color: #f87171; }
+
+  /* Main chat */
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chat-header {
+    height: 60px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .chat-header h2 { font-size: 16px; font-weight: 600; flex: 1; }
+  .chat-header h2 .hash { color: var(--text-dim); margin-right: 2px; }
+  .online-count {
+    font-size: 12px; color: var(--text-dim);
+    background: var(--bg-2); padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .menu-toggle { display: none; font-size: 22px; padding: 4px 8px; }
+
+  .messages {
+    flex: 1; overflow-y: auto; padding: 20px 24px;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { width: 8px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+
+  .empty { color: var(--text-dim); text-align: center; padding: 40px 0; font-size: 14px; }
+
+  .date-sep {
+    text-align: center; color: var(--text-dim);
+    font-size: 12px; font-weight: 600;
+    margin: 20px 0 12px;
+  }
+
+  .msg { display: flex; gap: 12px; padding: 6px 0; }
+  .msg.compact { padding: 1px 0; }
+  .msg-avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; font-size: 15px;
+  }
+  .msg-avatar-spacer { width: 40px; flex-shrink: 0; }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+  .msg-name { font-weight: 600; color: #fff; font-size: 14.5px; }
+  .msg-time { font-size: 11.5px; color: var(--text-dim); }
+  .msg-text {
+    color: #d1d3d8; font-size: 14.5px; line-height: 1.45;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+
+  .message-form {
+    flex-shrink: 0;
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    display: flex; gap: 10px;
+  }
+  .message-form input {
+    flex: 1; padding: 12px 16px; font-size: 15px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  .message-form input:focus { border-color: var(--accent); }
+  .message-form button {
+    width: 46px; height: 46px; flex-shrink: 0;
+    background: var(--accent); color: #fff; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, transform .1s;
+  }
+  .message-form button:hover { background: var(--accent-2); }
+  .message-form button:active { transform: scale(.95); }
+  .message-form svg { width: 20px; height: 20px; }
+
+  /* ============ MOBILE ============ */
+  @media (max-width: 720px) {
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      z-index: 50; transform: translateX(-100%);
+      transition: transform .25s ease;
+      box-shadow: 0 0 40px rgba(0,0,0,.6);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .menu-toggle { display: block; }
+    .messages { padding: 16px; }
+    .message-form { padding: 12px 16px 16px; }
+    .chat-header { padding: 0 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>💬 Мессенджер</h1>
+    <p>Введите имя, чтобы присоединиться к чату</p>
+    <input id="username-input" type="text" placeholder="Ваше имя" maxlength="20" autocomplete="off">
+    <button id="login-btn">Войти</button>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="chat-screen" class="hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="user-info">
+        <div class="avatar" id="user-avatar">?</div>
+        <div>
+          <div class="user-name" id="user-name">Гость</div>
+          <div class="user-status">онлайн</div>
+        </div>
+      </div>
+    </div>
+    <div class="rooms">
+      <div class="rooms-title">Комнаты</div>
+      <ul id="rooms-list"></ul>
+    </div>
+    <button class="logout-btn" id="logout-btn">Выйти</button>
+  </aside>
+
+  <main class="chat">
+    <header class="chat-header">
+      <button class="menu-toggle" id="menu-toggle">☰</button>
+      <h2 id="room-title"><span class="hash">#</span>general</h2>
+      <span class="online-count" id="online-count">0 онлайн</span>
+    </header>
+
+    <div class="messages" id="messages"></div>
+
+    <form class="message-form" id="message-form">
+      <input id="message-input" type="text" placeholder="Написать сообщение..." autocomplete="off" maxlength="1000">
+      <button type="submit" aria-label="Отправить">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </form>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, push, onValue, query, limitToLast, set, remove, onDisconnect }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* ==========================================================
+   🔧 НАСТРОЙКА: замените на свои данные из Firebase Console
+   Console → Project settings → Your apps → Web app
+   ========================================================== */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+/* ========================================================== */
+
+if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+  document.body.innerHTML = `
+    <div style="padding:40px;font-family:sans-serif;color:#fff;background:#0f0f10;min-height:100vh">
+      <h1>⚙️ Требуется настройка</h1>
+      <p style="margin-top:12px;line-height:1.6;color:#aaa">
+        Откройте <code style="background:#222;padding:2px 6px;border-radius:4px">index.html</code>
+        и замените объект <code style="background:#222;padding:2px 6px;border-radius:4px">firebaseConfig</code>
+        на свои данные из Firebase Console.<br><br>
+        Подробная инструкция — в <b>README.md</b>.
+      </p>
+    </div>`;
+  throw new Error("Firebase not configured");
+}
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const ROOMS = ['general', 'random', 'tech', 'music'];
+
+let currentUser = null;
+let currentRoom = 'general';
+let pendingName = null;
+let unsubscribeMessages = null;
+
+/* ============ AUTH ============ */
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+    if (pendingName) {
+      startChat(pendingName);
+      pendingName = null;
+    }
+  }
+});
+
+async function login(name) {
+  localStorage.setItem('chat_name', name);
+  if (currentUser) {
+    startChat(name);
+  } else {
+    pendingName = name;
+    try {
+      await signInAnonymously(auth);
+    } catch (e) {
+      alert('Ошибка входа: ' + e.message + '\n\nПроверьте, что анонимная аутентификация включена в Firebase Console.');
+      pendingName = null;
+    }
+  }
+}
+
+/* ============ LOGIN UI ============ */
+const usernameInput = document.getElementById('username-input');
+const loginBtn = document.getElementById('login-btn');
+
+const savedName = localStorage.getItem('chat_name');
+if (savedName) usernameInput.value = savedName;
+
+loginBtn.addEventListener('click', () => {
+  const name = usernameInput.value.trim();
+  if (name.length < 2) return usernameInput.focus();
+  login(name);
+});
+usernameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loginBtn.click();
+});
+if (savedName && savedName.length >= 2) {
+  // авто-вход
+  setTimeout(() => login(savedName), 100);
+}
+
+/* ============ CHAT ============ */
+function startChat(name) {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('chat-screen').classList.remove('hidden');
+
+  document.getElementById('user-name').textContent = name;
+  const av = document.getElementById('user-avatar');
+  av.textContent = name[0].toUpperCase();
+  av.style.background = colorFor(currentUser.uid);
+
+  // Presence
+  const userRef = ref(db, `online/${currentUser.uid}`);
+  set(userRef, { name, ts: Date.now() });
+  onDisconnect(userRef).remove();
+
+  // Online count
+  onValue(ref(db, 'online'), (snap) => {
+    const count = snap.size || 0;
+    document.getElementById('online-count').textContent = `${count} онлайн`;
+  });
+
+  renderRooms();
+  selectRoom('general');
+
+  // Focus input
+  document.getElementById('message-input').focus();
+}
+
+function renderRooms() {
+  const ul = document.getElementById('rooms-list');
+  ul.innerHTML = ROOMS.map(r =>
+    `<li data-room="${r}" class="${r === currentRoom ? 'active' : ''}">
+       <span class="hash">#</span>${r}
+     </li>`
+  ).join('');
+  ul.querySelectorAll('li').forEach(li => {
+    li.addEventListener('click', () => {
+      selectRoom(li.dataset.room);
+      document.getElementById('sidebar').classList.remove('open');
+    });
+  });
+}
+
+function selectRoom(room) {
+  currentRoom = room;
+  document.getElementById('room-title').innerHTML =
+    `<span class="hash">#</span>${room}`;
+  renderRooms();
+
+  if (unsubscribeMessages) unsubscribeMessages();
+
+  const msgsQuery = query(ref(db, `messages/${room}`), limitToLast(100));
+  unsubscribeMessages = onValue(msgsQuery, (snap) => {
+    const msgs = [];
+    snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
+    msgs.sort((a, b) => a.ts - b.ts);
+    renderMessages(msgs);
+  });
+}
+
+function renderMessages(msgs) {
+  const container = document.getElementById('messages');
+
+  if (msgs.length === 0) {
+    container.innerHTML = '<div class="empty">Пока нет сообщений. Будьте первым! ✨</div>';
+    return;
+  }
+
+  let html = '';
+  let lastUid = null;
+  let lastDate = null;
+
+  for (const m of msgs) {
+    const dateStr = new Date(m.ts).toDateString();
+    if (dateStr !== lastDate) {
+      html += `<div class="date-sep">${formatDate(m.ts)}</div>`;
+      lastDate = dateStr;
+      lastUid = null; // сброс группировки при новой дате
+    }
+
+    const isFirst = m.uid !== lastUid;
+    const name = m.name || 'Гость';
+    const initial = (name[0] || '?').toUpperCase();
+
+    if (isFirst) {
+      html += `
+        <div class="msg">
+          <div class="msg-avatar" style="background:${colorFor(m.uid)}">${initial}</div>
+          <div class="msg-body">
+            <div class="msg-head">
+              <span class="msg-name">${escapeHtml(name)}</span>
+              <span class="msg-time">${formatTime(m.ts)}</span>
+            </div>
+            <div class="msg-text">${escapeHtml(m.text)}</div>
+          </div>
+        </div>`;
+    } else {
+      html += `
+        <div class="msg compact">
+          <div class="msg-avatar-spacer"></div>
+          <div class="msg-body">
+            <div class="msg-text">${escapeHtml(m.text)}</div>
+          </div>
+        </div>`;
+    }
+    lastUid = m.uid;
+  }
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+/* ============ SEND ============ */
+document.getElementById('message-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('message-input');
+  const text = input.value.trim();
+  if (!text || !currentUser) return;
+  input.value = '';
+  input.focus();
+
+  try {
+    await push(ref(db, `messages/${currentRoom}`), {
+      uid: currentUser.uid,
+      name: localStorage.getItem('chat_name') || 'Гость',
+      text,
+      ts: Date.now()
+    });
+  } catch (err) {
+    alert('Не удалось отправить: ' + err.message);
+  }
+});
+
+/* ============ LOGOUT ============ */
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  try {
+    if (currentUser) await remove(ref(db, `online/${currentUser.uid}`));
+    localStorage.removeItem('chat_name');
+    await signOut(auth);
+  } catch (_) {}
+  location.reload();
+});
+
+/* ============ MOBILE MENU ============ */
+document.getElementById('menu-toggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+/* ============ HELPERS ============ */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return 'Сегодня';
+  if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+}
+
+function colorFor(uid) {
+  let h = 0;
+  for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) | 0;
+  const hue = Math.abs(h) % 360;
+  return `hsl(${hue} 65% 50%)`;
+}
+</script>
+</body>
+</html>
